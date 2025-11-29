@@ -1,0 +1,6 @@
+google-adk
+streamlit
+sqlalchemy
+google-genai
+aiosqlite
+greenlet
