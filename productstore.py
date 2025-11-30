@@ -359,6 +359,32 @@ class SQLProductStore:
                 return {"ok": False, "message": "Return request not found."}
             return {"ok": True, "return": ret.to_dict()}
 
+    def flag_suspicious_return(self, user_id: str, order_id: int, reason: str) -> Dict[str, Any]:
+        from baseClass import SuspiciousReturn, Order
+        try:
+            with Session(self.engine) as ses:
+                order = ses.get(Order, order_id)
+                if not order or order.user_id != user_id:
+                    return {"ok": False, "message": "Order not found or does not belong to the user."}
+
+                suspicious_return = SuspiciousReturn(
+                    order_id=order_id, user_id=user_id, reason=reason
+                )
+                ses.add(suspicious_return)
+                ses.commit()
+                return {"ok": True, "message": "Return flagged for review."}
+        except SQLAlchemyError as e:
+            return {"ok": False, "message": str(e)}
+
+    def get_user_return_count(self, user_id: str) -> Dict[str, Any]:
+        from baseClass import OrderReturn, Order
+        try:
+            with Session(self.engine) as ses:
+                count = ses.query(OrderReturn).join(Order).filter(Order.user_id == user_id).count()
+                return {"ok": True, "count": count}
+        except SQLAlchemyError as e:
+            return {"ok": False, "message": str(e)}
+
     # def _model_to_dict(self, obj) -> Dict[str, Any]:
     #     if obj is None:
     #         return {}

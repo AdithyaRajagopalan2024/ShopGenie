@@ -6,7 +6,7 @@ from google.adk.plugins import LoggingPlugin
 from google.genai import types
 from dotenv import load_dotenv
 import os
-from tools import retrieve_products, parse_intent, return_order, check_order_status, get_my_orders, check_return_status, place_order_with_user
+from tools import retrieve_products, parse_intent, return_order, check_order_status, get_my_orders, check_return_status, place_order_with_user, flag_return_for_review, get_user_return_history
 
 load_dotenv()
 APP_NAME = os.getenv("APP_NAME")
@@ -47,28 +47,48 @@ service_agent = LlmAgent(
     model=Gemini(model=MODEL_NAME, retry_options=retry_config),
     name="service_agent",
     instruction="""You handle orders and customer service.
+Your tasks include placing orders, checking order status, and handling returns with an intelligent validation process.
 
-If the task is to place an order, use place_order, using id and quantity.
-If the task is to check an order status, use check_order_tool with order_id.
-If the task is to get order history, use get_orders_tool with limit.
-If the task is to return an order, use return_order_tool with order_id and reason.
-If the task is to check return status, use check_return_tool with return_id.
+**Advanced Return Validation Workflow:**
+When a user requests a return, follow these steps to validate it:
 
+1.  **Find the Order**: If the user doesn't provide an order ID, use `get_my_orders` to help them find it. Once you have the `order_id`, use `check_order_status` to get the order details, especially the `created_at` date.
 
-Important:
-- Orders are linked to the current user's session
-- Always confirm order details after placing
-- **ALWAYS display prices with "Rs." prefix. Use the formatted price fields (total_price_formatted, refund_amount_formatted) from tool outputs.**
-- For returns, explain the refund process and show the refund amount with "Rs." prefix
-- Show order history when relevant with formatted prices
-- Be helpful and clear about order statuses
+2.  **Check Return Window**: The return policy is **14 days**. Compare the order's `created_at` date with the current date. If it's outside the 14-day window, politely inform the user that the item is no longer returnable and **stop the process**.
+
+3.  **Assess User's Return History**: Use the `get_user_return_history` tool. If the user has made **3 or more returns** in the past, this is a potential red flag.
+
+4.  **Analyze the Reason**: Ask the user for the reason for the return. Analyze their response semantically.
+    *   **Legitimate Reasons**: Issues like "item is damaged", "defective product", "wrong size received", or "doesn't fit" are usually legitimate.
+    *   **Suspicious Reasons**: Reasons like "changed my mind", "don't want it anymore", "found it cheaper elsewhere", or very brief/vague answers are more suspicious.
+
+5.  **Make a Decision**:
+    *   **Automatic Return (`return_order`)**: If the return is within the 14-day window, the user has fewer than 3 past returns, AND the reason is legitimate, process the return automatically.
+    *   **Flag for Review (`flag_return_for_review`)**: If the return is outside the 14-day window, OR the user has 3 or more past returns, OR the reason seems suspicious, you **MUST** flag the return for manual review. Do not process it automatically.
+
+6.  **Communicate Clearly**: Inform the user of the outcome. If approved, confirm the refund details. If flagged, explain that it needs a quick review from a support agent.
+
+**Tool Usage:**
+- To place an order: `place_order_with_user(product_name, quantity)`
+- To check order status: `check_order_status(order_id)`
+- To get order history: `get_my_orders(limit)`
+- For a valid return: `return_order(order_id, reason)`
+- For a suspicious return: `flag_return_for_review(order_id, reason)`
+- To check return status: `check_return_status(return_id)`
+- To check user's return history: `get_user_return_history()`
+**General Rules:**
+- Always confirm order details after placing.
+- **ALWAYS display prices with "Rs." prefix.** Use formatted price fields like `total_price_formatted` and `refund_amount_formatted` from tool outputs.
+- For standard returns, explain the refund process and show the refund amount with "Rs." prefix.
+- Be helpful and clear in all your communications.
 """,
     tools=[
         place_order_with_user,
         return_order,
         check_order_status,
         get_my_orders,
-        check_return_status
+        check_return_status,
+        flag_return_for_review
     ]
 )
 

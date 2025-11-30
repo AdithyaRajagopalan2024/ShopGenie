@@ -333,6 +333,29 @@ def check_return_status(return_id: int) -> Dict[str, Any]:
     except Exception as e:
         return {"status": "error", "error_message": str(e)}
 
+def flag_return_for_review(order_id: int, reason: str) -> Dict[str, Any]:
+    """Flags a return request for manual review by a human agent."""
+    user_id = "admin"  # Hardcoded user_id
+    try:
+        result = store.flag_suspicious_return(user_id, order_id, reason)
+        if result["ok"]:
+            return {"status": "success", "data": {"message": result["message"]}}
+        return {"status": "error", "error_message": result["message"]}
+    except Exception as e:
+        return {"status": "error", "error_message": str(e)}
+
+def get_user_return_history() -> Dict[str, Any]:
+    """Gets the number of returns previously initiated by the current user."""
+    user_id = "admin"  # Hardcoded user_id
+    try:
+        result = store.get_user_return_count(user_id)
+        if result["ok"]:
+            return {"status": "success", "data": {"return_count": result["count"]}}
+        return {"status": "error", "error_message": result["message"]}
+    except Exception as e:
+        return {"status": "error", "error_message": str(e)}
+
+
 # from google.adk.tools import BaseTool
 # from google.adk.tools.tool_context import ToolContext
 
