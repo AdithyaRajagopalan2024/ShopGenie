@@ -303,53 +303,61 @@ class SQLProductStore:
     #     except SQLAlchemyError as e:
     #         return {"ok": False, "message": str(e)}
 
-    # def get_user_orders(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-    #     try:
-    #         with Session(self.engine) as ses:
-    #             q = ses.query(Order).filter(getattr(Order, "user_id") == user_id).order_by(Order.id.desc()).limit(limit)
-    #             return [self._model_to_dict(o) for o in q.all()]
-    #     except SQLAlchemyError:
-    #         return []
+    def get_user_orders(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        try:
+            with Session(self.engine) as ses:
+                q = ses.query(Order).filter(Order.user_id == user_id).order_by(Order.order_id.desc()).limit(limit)
+                return [o.to_dict() for o in q.all()]
+        except SQLAlchemyError:
+            return []
 
-    # def get_order(self, user_id: str, order_id: int) -> Dict[str, Any]:
-    #     try:
-    #         with Session(self.engine) as ses:
-    #             order = ses.get(Order, order_id)
-    #             if not order:
-    #                 return {"ok": False, "message": "Order not found."}
-    #             # ensure ownership
-    #             if getattr(order, "user_id", None) != user_id:
-    #                 return {"ok": False, "message": "Not your order."}
-    #             return {"ok": True, "order": self._model_to_dict(order)}
-    #     except SQLAlchemyError as e:
-    #         return {"ok": False, "message": str(e)}
+    def get_order(self, user_id: str, order_id: int) -> Dict[str, Any]:
+        try:
+            with Session(self.engine) as ses:
+                order = ses.get(Order, order_id)
+                if not order:
+                    return {"ok": False, "message": "Order not found."}
+                # ensure ownership
+                if order.user_id != user_id:
+                    return {"ok": False, "message": "Not your order."}
+                return {"ok": True, "order": order.to_dict()}
+        except SQLAlchemyError as e:
+            return {"ok": False, "message": str(e)}
 
-    # def request_return(self, user_id: str, order_id: int, reason: Optional[str] = None) -> Dict[str, Any]:
-    #     try:
-    #         with Session(self.engine) as ses:
-    #             order = ses.get(Order, order_id)
-    #             if not order:
-    #                 return {"ok": False, "message": "Order not found."}
-    #             if getattr(order, "user_id", None) != user_id:
-    #                 return {"ok": False, "message": "Not your order."}
+    def request_return(self, user_id: str, order_id: int, reason: Optional[str] = None) -> Dict[str, Any]:
+        from baseClass import OrderStatus, ReturnStatus, OrderReturn
+        try:
+            with Session(self.engine) as ses:
+                order = ses.get(Order, order_id)
+                if not order:
+                    return {"ok": False, "message": "Order not found."}
+                if order.user_id != user_id:
+                    return {"ok": False, "message": "Not your order."}
 
-    #             prod = ses.get(Product, order.product_id)
-    #             if prod:
-    #                 prod.stock = getattr(prod, "stock", 0) + getattr(order, "quantity", 0)
-    #                 ses.add(prod)
+                order.status = OrderStatus.RETURNED
+                
+                return_request = OrderReturn(
+                    order_id=order_id,
+                    reason=reason,
+                    status=ReturnStatus.REQUESTED,
+                    refund_amount=order.total_price
+                )
+                ses.add(order)
+                ses.add(return_request)
+                ses.commit()
+                ses.refresh(return_request)
+                
+                return {"ok": True, "return": return_request.to_dict(), "refund_amount": return_request.refund_amount}
+        except SQLAlchemyError as e:
+            return {"ok": False, "message": str(e)}
 
-    #             if "status" in Order.__table__.columns.keys():
-    #                 order.status = "returned"
-    #                 ses.add(order)
-
-    #             ses.commit()
-    #             refund_amount = getattr(order, "total_price", 0)
-    #             return {"ok": True, "return": {"order_id": order_id, "refund_amount": refund_amount}, "refund_amount": refund_amount}
-    #     except SQLAlchemyError as e:
-    #         return {"ok": False, "message": str(e)}
-
-    # def get_return_status(self, user_id: str, return_id: int) -> Dict[str, Any]:
-    #     return {"ok": False, "message": "Return tracking not implemented."}
+    def get_return_status(self, user_id: str, return_id: int) -> Dict[str, Any]:
+        from baseClass import OrderReturn
+        with Session(self.engine) as ses:
+            ret = ses.get(OrderReturn, return_id)
+            if not ret or ret.order.user_id != user_id:
+                return {"ok": False, "message": "Return request not found."}
+            return {"ok": True, "return": ret.to_dict()}
 
     # def _model_to_dict(self, obj) -> Dict[str, Any]:
     #     if obj is None:

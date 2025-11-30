@@ -30,7 +30,8 @@ def get_event_loop():
 
 def get_agent_response(userPrompt: str) -> str:
     try:
-        loop = get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         response = loop.run_until_complete(runner_creator(userPrompt))
         return response
     except Exception as e:
