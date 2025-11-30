@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from baseClass import Base, Product, Order
 from sqlalchemy import create_engine
@@ -232,7 +233,50 @@ class SQLProductStore:
         except SQLAlchemyError:
             return None
 
-    # def place_order(self, user_id: str, pid: int, qty: int) -> Dict[str, Any]:
+    def place_order(self, user_id: str, pid: int, qty: int) -> Dict[str, Any]:
+        """
+        Place an order for user_id. Returns {"ok": True, "order": {...}} on success,
+        or {"ok": False, "message": "..."} on failure.
+        """
+        try:
+            with Session(self.engine) as ses:
+                # Ensure user exists
+                from baseClass import User, OrderStatus
+                user = ses.get(User, user_id)
+                if not user:
+                    user = User(user_id=user_id)
+                    ses.add(user)
+                    ses.commit()
+                
+                prod = ses.get(Product, pid)
+                if not prod:
+                    return {"ok": False, "message": "Product not found."}
+                if prod.stock < qty:
+                    return {"ok": False, "message": f"Only {prod.stock} left in stock."}
+
+                order = Order(
+                    user_id=user_id, 
+                    product_id=pid, 
+                    quantity=qty, 
+                    total_price=prod.price * qty,
+                    status=OrderStatus.CONFIRMED
+                )
+                prod.stock = prod.stock - qty
+
+                ses.add(order)
+                ses.add(prod)
+                ses.commit()
+                ses.refresh(order)
+                
+                # Format order with Rs. prefix
+                order_dict = self._model_to_dict(order)
+                order_dict["total_price_formatted"] = f"Rs. {order_dict['total_price']}"
+                order_dict["product_name"] = prod.name
+                
+                return {"ok": True, "order": order_dict}
+        except SQLAlchemyError as e:
+            return {"ok": False, "message": str(e)}
+        # def place_order(self, user_id: str, pid: int, qty: int) -> Dict[str, Any]:
     #     """
     #     Place an order for user_id. Returns {"ok": True, "order": {...}} on success,
     #     or {"ok": False, "message": "..."} on failure.
@@ -307,6 +351,22 @@ class SQLProductStore:
     # def get_return_status(self, user_id: str, return_id: int) -> Dict[str, Any]:
     #     return {"ok": False, "message": "Return tracking not implemented."}
 
+    # def _model_to_dict(self, obj) -> Dict[str, Any]:
+    #     if obj is None:
+    #         return {}
+    #     out = {}
+    #     for col in obj.__table__.columns:
+    #         val = getattr(obj, col.name)
+    #         if isinstance(val, (list, dict)):
+    #             out[col.name] = val
+    #         else:
+    #             out[col.name] = val
+    #     if "features" in out and isinstance(out["features"], str):
+    #         try:
+    #             out["features"] = json.loads(out["features"])
+    #         except Exception:
+    #             pass
+    #     return out
     def _model_to_dict(self, obj) -> Dict[str, Any]:
         if obj is None:
             return {}
@@ -315,6 +375,10 @@ class SQLProductStore:
             val = getattr(obj, col.name)
             if isinstance(val, (list, dict)):
                 out[col.name] = val
+            elif isinstance(val, datetime):
+                out[col.name] = val.isoformat()
+            elif hasattr(val, 'value'):  # For Enum types like OrderStatus
+                out[col.name] = val.value
             else:
                 out[col.name] = val
         if "features" in out and isinstance(out["features"], str):

@@ -6,7 +6,7 @@ from google.adk.plugins import LoggingPlugin
 from google.genai import types
 from dotenv import load_dotenv
 import os
-from tools import retrieve_products, parse_intent, place_order_tool, return_order_tool, check_order_tool, get_orders_tool, check_return_tool, place_order
+from tools import retrieve_products, parse_intent, return_order, check_order_status, get_my_orders, check_return_status, place_order_with_user
 
 load_dotenv()
 APP_NAME = os.getenv("APP_NAME")
@@ -30,9 +30,11 @@ Your goal is to help users find products.
 2.  Unless the user asks for a specific number, **always show at least 15 products** if available.
 3.  Present the results clearly to the user.
 4.  If no products are found, say so.
-5.  Include product names, prices, and stock availability in your summary.
-6.  **Crucially, you must report the stock status exactly as provided by the tool. Do not add any extra information or make assumptions about availability.**
-7.  If the user asks why a product is a good pick or asks about its features, summarize the features from the tool output in a helpful way.
+5.  **IMPORTANT: Always display prices with "Rs." prefix. Use the price_formatted field from the tool output.**
+6.  Include product names, formatted prices (Rs. X), and stock availability in your summary.
+7.  **Crucially, you must report the stock status exactly as provided by the tool. Do not add any extra information or make assumptions about availability.**
+8.  If the user asks why a product is a good pick or asks about its features, summarize the features from the tool output in a helpful way.
+9.  The search now uses fuzzy matching, so products will be found even if the search terms don't match exactly.
 """,
     tools=[retrieve_products]
 )
@@ -56,16 +58,17 @@ If the task is to check return status, use check_return_tool with return_id.
 Important:
 - Orders are linked to the current user's session
 - Always confirm order details after placing
-- For returns, explain the refund process
-- Show order history when relevant
+- **ALWAYS display prices with "Rs." prefix. Use the formatted price fields (total_price_formatted, refund_amount_formatted) from tool outputs.**
+- For returns, explain the refund process and show the refund amount with "Rs." prefix
+- Show order history when relevant with formatted prices
 - Be helpful and clear about order statuses
 """,
     tools=[
-        place_order,
-        return_order_tool,
-        check_order_tool,
-        get_orders_tool,
-        check_return_tool
+        place_order_with_user,
+        return_order,
+        check_order_status,
+        get_my_orders,
+        check_return_status
     ]
 )
 
@@ -93,12 +96,13 @@ Follow this workflow strictly:
     *   **product_agent**: If the user wants to find, search for, or see products, use the subagent `product_agent`.
     *   **service_agent**: If the user wants to place an order, check an order's status, get their order history, or process a return, delegate the task to subagent `service_agent`. If the user says "order [product name]", first use subagent `product_agent` to search for that product. Then, confirm with the user and use subagent `service_agent` to place the order using the product ID from the search results. Do not assume a product ID.
 4.  User Context: The SubAgent `service_agent` automatically handles user identification from the session. You do not need to manage user IDs.
-5.  Respond to User: Formulate a helpful, conversational response based on the results from the specialist agents. If an agent fails, do not just repeat the error. Try to understand the problem and find another way to help.
+5.  **Price Formatting**: Ensure all prices are displayed with "Rs." prefix in your responses.
+6.  Respond to User: Formulate a helpful, conversational response based on the results from the specialist agents. If an agent fails, do not just repeat the error. Try to understand the problem and find another way to help.
     
 **SubAgent Capabilities:**
-- `product_agent`: Searches the product catalog.
+- `product_agent`: Searches the product catalog using fuzzy matching (finds products even with approximate search terms).
 - `service_agent`: Manages orders, returns, and status checks for the current user.
-- `parse_intent`: Extracts details like category, brand, and price from the user's query.
+- `parse_intent`: Extracts details like category, brand, and price from the user's query using fuzzy matching.
 - `load_memory`: Retrieves the user's saved preferences.
 """,
     tools=[

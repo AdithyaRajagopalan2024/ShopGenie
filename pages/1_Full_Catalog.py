@@ -29,7 +29,7 @@ else:
             # RIGHT: Product Details
             with col2:
                 st.subheader(product.get("name", "Unnamed Product"))
-                st.write(f"**Price:** ${product.get('price', 'N/A')}")
+                st.write(f"**Price:** Rs.{product.get('price', 'N/A')}")
                 st.write(f"**Brand:** {product.get('brand', 'N/A')}")
                 st.write(f"**Category:** {product.get('category', 'N/A')}")
                 st.write(f"**Color:** {product.get('color', 'N/A')}")
