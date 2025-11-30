@@ -30,7 +30,8 @@ def get_event_loop():
 
 def get_agent_response(userPrompt: str) -> str:
     try:
-        loop = get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         response = loop.run_until_complete(runner_creator(userPrompt))
         return response
     except Exception as e:
@@ -112,6 +113,29 @@ import streamlit as st
 import asyncio
 import sys
 import traceback
+
+def show_product_dialog(product_id: int):
+    """Fetches product data and displays it in a Streamlit dialog."""
+    product = store.get_product(product_id)
+    if product:
+        with st.dialog(f"Product Details: {product.get('name')}"):
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                if product.get("image"):
+                    st.image(f"static/images/{product['image']}", use_column_width=True)
+            with col2:
+                st.subheader(product.get("name"))
+                st.markdown(f"**Price:** {product.get('price_formatted', f'Rs. {product.get.price}')}")
+                st.markdown(f"**Brand:** {product.get('brand', 'N/A')}")
+                st.markdown(f"**Category:** {product.get('category', 'N/A')}")
+                st.markdown(f"**Rating:** {'⭐' * int(product.get('rating', 0))} ({product.get('rating', 0)})")
+                st.markdown(f"**In Stock:** {product.get('stock', 0)} units")
+                
+                features = product.get('features', [])
+                if features:
+                    st.markdown("**Features:**")
+                    for feature in features:
+                        st.markdown(f"- {feature.capitalize()}")
 
 def streamlit_starter():
     st.set_page_config(page_title="ShopGenie", layout="centered", initial_sidebar_state="collapsed")
@@ -246,6 +270,12 @@ def streamlit_starter():
                 log_trace(session_id="user_id", prompt=prompt, response=resp)
             st.session_state.messages.append({"role": "assistant", "content": resp})
             st.rerun()
+
+        # Check if a product link was clicked
+        if "product_id" in st.query_params:
+            product_id_str = st.query_params["product_id"]
+            show_product_dialog(int(product_id_str))
+            st.query_params.clear()
 
     except Exception as e:
         st.error("UI rendering error — check terminal for traceback")

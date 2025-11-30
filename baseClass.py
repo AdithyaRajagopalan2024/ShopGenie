@@ -121,3 +121,13 @@ class OrderReturn(Base):
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None
         }
+
+class SuspiciousReturn(Base):
+    __tablename__ = "suspicious_returns"
+
+    review_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(String(500))
+    review_notes: Mapped[str] = mapped_column(String(500), default="Awaiting review")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
