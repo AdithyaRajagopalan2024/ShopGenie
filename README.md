@@ -4,6 +4,10 @@
 ## Project Overview
 **ShopGenie** is an AI-driven shopping assistant built for the **Kaggle Agents Intensive – Capstone Project**. It demonstrates how agent-based reasoning can power a realistic e-commerce assistant that can search and filter a product catalog, maintain conversational state, simulate cart behavior, and persist session data using a lightweight database backend.
 
+**Demo Link**: https://shopgenie-shopassistant-728506420698.us-east1.run.app/
+**YouTube Demo**: https://www.youtube.com/watch?v=3yGgzMgaK44
+**Kaggle Writeup**: https://www.kaggle.com/competitions/agents-intensive-capstone-project/writeups/shopgenie
+
 ## Motivation
 The Kaggle Agents Intensive encourages building **an agent that solves a real-world problem**. Retail is a natural fit: product search and filtering require reasoning, sessions require memory, and the entire system can scale to recommendations and vector search.  
 **Goal:** Build a cohesive, modular, production-style prototype using cooperating agents to manage product lookup and user session flows.
